@@ -1,0 +1,30 @@
+.footer {
+  background-color: #f9f9f9; /* ← светлый фон */
+  color: #333;              /* ← тёмный текст */
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-family: "Inter", sans-serif;
+  border-top: 1px solid #ddd;
+}
+
+.footer__links {
+  margin-bottom: 0.8rem;
+}
+
+.footer__links a {
+  margin: 0 0.8rem;
+  color: #444;
+  text-decoration: none;
+}
+
+.footer__links a:hover {
+  text-decoration: underline;
+  color: #000;
+}
+
+.footer__copyright,
+.footer__address {
+  margin: 0.4rem 0;
+  color: #666;
+}
