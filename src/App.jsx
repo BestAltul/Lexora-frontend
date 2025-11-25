@@ -2,16 +2,16 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./home/Home";
 import MainLayout from "./layouts/MainLayout";
 import Login from "./auth/Login";
+import ResetPasswordPage from "./auth/ResetPasswordPage";
 
 function App() {
-  return (
+  return (    
     <MainLayout>
       <Routes>     
-        <Route path="/login" element={<Login/>}/>   
-        {/* <Route path="/home" element={<Home />} />            
-        <Route path="*" element={<Navigate to="/dashboard/home" replace />} /> */}
+        <Route path="/login" element={<Login/>}/>           
+        <Route path="/core/reset-password-request" element={<ResetPasswordPage />} />
       </Routes>
-    </MainLayout>
+    </MainLayout>    
   );
 }
 

@@ -5,7 +5,12 @@ import {
   Paper,
   TextField,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
 
 import { useState } from "react";
@@ -15,6 +20,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setUserEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [openReset, setOpenReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   const handleLogin = async () => {
     try {
@@ -32,6 +40,28 @@ export default function Login() {
         console.log("Success:", data);
       } else {
         alert(`error: ${data.message}`);
+      }
+    } catch (err) {
+      console.error("Server error:", err);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/v3/auth/reset-password-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Check your email for password reset instructions!");
+        setOpenReset(false);
+        setResetEmail("");
+      } else {
+        alert(`Error: ${data.message}`);
       }
     } catch (err) {
       console.error("Server error:", err);
@@ -94,7 +124,53 @@ export default function Login() {
         >
           Sign In
         </Button>
+
+        
+        <Typography variant="body2" textAlign="center">
+          <Link
+            component="button"
+            onClick={() => {
+                setResetEmail(email)
+                setOpenReset(true);                
+            }}
+            underline="hover"
+          >
+            Set or reset password.
+          </Link>
+        </Typography>
       </Paper>
+
+      
+<Dialog
+  open={openReset}
+  onClose={() => setOpenReset(false)}
+  PaperProps={{
+    sx: {
+      width: 400,
+      maxWidth: "90%",
+      padding: 2
+    }
+  }}
+>
+  <DialogTitle>Reset Password</DialogTitle>
+  <DialogContent>
+    <TextField
+      label="Email"
+      type="email"
+      fullWidth
+      value={resetEmail}
+      onChange={(e) => setResetEmail(e.target.value)}
+      sx={{ mt: 1 }}
+    />
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenReset(false)}>Cancel</Button>
+    <Button onClick={handleResetPassword} variant="contained">
+      Send Reset Link
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </Box>
   );
 }
