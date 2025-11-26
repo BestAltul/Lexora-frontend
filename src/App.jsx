@@ -3,6 +3,9 @@ import Home from "./home/Home";
 import MainLayout from "./layouts/MainLayout";
 import Login from "./auth/Login";
 import ResetPasswordPage from "./auth/ResetPasswordPage";
+import Desktop from "./home/Desktop";
+import GoodList from "./picture_service/GoodListForm";
+import GoodForm from "./picture_service/GoodForm";
 
 function App() {
   return (    
@@ -10,6 +13,10 @@ function App() {
       <Routes>     
         <Route path="/login" element={<Login/>}/>           
         <Route path="/core/reset-password-request" element={<ResetPasswordPage />} />
+        <Route path="/desktop" element={<Desktop />} />
+        <Route path="/goods" element={<GoodList />} />
+        <Route path="/goods/:id" element={<GoodForm />} />
+        <Route path="/goods/new" element={<GoodForm />} />
       </Routes>
     </MainLayout>    
   );

@@ -1,0 +1,41 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+
+function GoodList() {
+  const [goods, setGoods] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/v3/goods')
+      .then(res => res.json())
+      .then(data => setGoods(data));
+  }, []);
+
+  return (
+    <div>
+      <h2>List of goods</h2>
+      <Link to="/goods/new">Add new</Link>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {goods.map(good => (
+            <tr key={good.id}>
+              <td>{good.name}</td>
+              <td>{good.pictureType?.name}</td>
+              <td>
+                <Link to={`/goods/${good.id}`}>Edit</Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default GoodList;
