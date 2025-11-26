@@ -18,6 +18,10 @@ function GoodList() {
         <thead>
           <tr>
             <th>Name</th>
+            <th>SKU</th>
+            <th>UPC</th>
+            <th>Core</th>
+            <th>Collection</th>            
             <th>Type</th>
             <th>Actions</th>
           </tr>
@@ -25,7 +29,11 @@ function GoodList() {
         <tbody>
           {goods.map(good => (
             <tr key={good.id}>
-              <td>{good.name}</td>
+              <td>{good.title}</td>
+              <td>{good.sku}</td>
+              <td>{good.upc}</td>
+              <td>{good.isCore}</td>
+              <td>{good.goodsCollectionRecord}</td>
               <td>{good.pictureType?.name}</td>
               <td>
                 <Link to={`/goods/${good.id}`}>Edit</Link>
