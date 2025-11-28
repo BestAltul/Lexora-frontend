@@ -9,6 +9,15 @@ const desktopItems = [
     buttonText: 'View Goods',
     navigateTo: '/goods',
   },
+
+  {
+    icon: '🛠️',
+    title: 'Goods List Checker',
+    description: 'Manage and verify your goods list.',
+    buttonText: 'Check Goods',
+    navigateTo: '/goodlist-checker',
+  },
+
   {
     icon: '➕',
     title: 'Add New Good',

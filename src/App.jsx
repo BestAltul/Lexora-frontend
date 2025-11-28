@@ -6,6 +6,7 @@ import ResetPasswordPage from "./auth/ResetPasswordPage";
 import Desktop from "./home/Desktop";
 import GoodList from "./picture_service/GoodListForm";
 import GoodForm from "./picture_service/GoodForm";
+import GoodListChecker from "./picture_service/GoodListCheckerForm";
 
 function App() {
   return (    
@@ -15,6 +16,7 @@ function App() {
         <Route path="/core/reset-password-request" element={<ResetPasswordPage />} />
         <Route path="/desktop" element={<Desktop />} />
         <Route path="/goods" element={<GoodList />} />
+        <Route path="/goodlist-checker" element={<GoodListChecker />} />
         <Route path="/goods/:id" element={<GoodForm />} />
         <Route path="/goods/new" element={<GoodForm />} />
       </Routes>
