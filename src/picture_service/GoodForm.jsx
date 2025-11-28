@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import "./GoodForm.css";
 
@@ -16,12 +16,10 @@ function GoodForm() {
     kitOrSingle: "SINGLE",
     isCore: true,
     coreGoodId: "",
-
     goodsCollectionId: "",
     categoryId: "",
     productTypeId: "",
     colorId: "",
-
     mainPictureLink: "",
   });
 
@@ -30,6 +28,13 @@ function GoodForm() {
   const [types, setTypes] = useState([]);
   const [colors, setColors] = useState([]);
   const [coreGoods, setCoreGoods] = useState([]);
+
+  const [pictureTypes, setPictureTypes] = useState([]);
+
+  const [pictures, setPictures] = useState([]);
+  const fileInputRef = useRef(null);
+  const [fileInputIndex, setFileInputIndex] = useState(null);
+  const [previewPicture, setPreviewPicture] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -42,13 +47,26 @@ function GoodForm() {
       ),
       fetch("http://localhost:8080/api/colors").then((res) => res.json()),
       fetch("http://localhost:8080/api/goods/core").then((res) => res.json()),
-    ]).then(([c1, c2, c3, c4, c5]) => {
-      setCollections(c1);
-      setCategories(c2);
-      setTypes(c3);
-      setColors(c4);
-      setCoreGoods(c5);
-    });
+      fetch("http://localhost:8080/api/picture-types").then((res) =>
+        res.ok ? res.json() : []
+      ),
+    ])
+      .then(([c1, c2, c3, c4, c5, c6]) => {
+        setCollections(c1);
+        setCategories(c2);
+        setTypes(c3);
+        setColors(c4);
+        setCoreGoods(c5);
+        setPictureTypes(c6 || []);
+      })
+      .catch(() => {
+        setCollections([]);
+        setCategories([]);
+        setTypes([]);
+        setColors([]);
+        setCoreGoods([]);
+        setPictureTypes([]);
+      });
 
     if (id && id !== "new") {
       fetch(`http://localhost:8080/api/goods/${id}`)
@@ -63,15 +81,30 @@ function GoodForm() {
             kitOrSingle: data.kitOrSingle || "SINGLE",
             isCore: data.isCore ?? true,
             coreGoodId: data.coreGood?.id || "",
-
             goodsCollectionId: data.goodsCollection?.id || "",
             categoryId: data.category?.id || "",
             productTypeId: data.productType?.id || "",
             colorId: data.color?.id || "",
-
             mainPictureLink: prev.mainPictureLink,
           }))
         );
+
+      fetch(`http://localhost:8080/api/goods/${id}/pictures`)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => {
+          setPictures(
+            (data || []).map((p) => ({
+              ...p,
+              previewUrl: p.link,
+              file: null,
+            }))
+          );
+        })
+        .catch(() => {
+          setPictures([]);
+        });
+    } else {
+      setPictures([]);
     }
   }, [id]);
 
@@ -106,13 +139,89 @@ function GoodForm() {
       categoryId: good.categoryId,
       productTypeId: good.productTypeId,
       colorId: good.colorId,
+      mainPictureLink: good.mainPictureLink,
     };
 
     fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).then(() => navigate("/goods"));
+    }).then(() => {
+      navigate("/goods");
+    });
+  };
+
+  const handlePictureClick = (index) => {
+    setFileInputIndex(index);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || fileInputIndex === null) return;
+
+    const url = URL.createObjectURL(file);
+
+    setPictures((prev) =>
+      prev.map((pic, idx) =>
+        idx === fileInputIndex
+          ? {
+              ...pic,
+              file,
+              previewUrl: url,
+            }
+          : pic
+      )
+    );
+  };
+
+  const handlePictureFieldChange = (index, field, value) => {
+    setPictures((prev) =>
+      prev.map((pic, idx) => {
+        if (idx !== index) return pic;
+
+        if (field === "pictureStatus") {
+          const newStatus = value;
+          return {
+            ...pic,
+            pictureStatus: newStatus,
+            notes: newStatus === "REJECTED" ? pic.notes || "" : "",
+          };
+        }
+
+        return {
+          ...pic,
+          [field]: value,
+        };
+      })
+    );
+  };
+
+  const handlePictureDoubleClick = (pic) => {
+    if (!pic.previewUrl && !pic.link) return;
+    setPreviewPicture(pic);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewPicture(null);
+  };
+
+  const handleAddPicture = () => {
+    setPictures((prev) => [
+      ...prev,
+      {
+        id: null,
+        name: "",
+        link: "",
+        priority: prev.length + 1,
+        notes: "",
+        pictureStatus: "UNDER_REVIEW",
+        previewUrl: "",
+        file: null,
+      },
+    ]);
   };
 
   const titleText = id === "new" ? "Create new Good" : "Edit Good";
@@ -274,12 +383,6 @@ function GoodForm() {
                     />
                   </label>
                 </div>
-
-                <p className="muted">
-                  This URL is used for the main preview of the item (top-left
-                  picture). Later we will replace it with the real Picture
-                  entity.
-                </p>
               </div>
 
               <div className="section">
@@ -358,11 +461,126 @@ function GoodForm() {
 
           {activeTab === "pictures" && (
             <div className="section">
-              <h3>Pictures</h3>
-              <p className="muted">
-                Здесь позже сделаем список всех фото товара, статусы (Under
-                review / Approved / Final) и сортировку по priority.
-              </p>
+              <div className="pictures-header">
+                <h3>Pictures</h3>
+                <button
+                  type="button"
+                  className="add-picture-btn"
+                  onClick={handleAddPicture}
+                >
+                  + Add picture
+                </button>
+              </div>
+
+              <div className="pictures-grid">
+                {pictures.length === 0 && (
+                  <p className="muted">
+                    No pictures yet. Click “Add picture” to create a slot.
+                  </p>
+                )}
+
+                {pictures.map((pic, index) => (
+                  <div className="picture-card" key={pic.id || index}>
+                    <div
+                      className="picture-square"
+                      onClick={() => handlePictureClick(index)}
+                      onDoubleClick={() => handlePictureDoubleClick(pic)}
+                    >
+                      {pic.previewUrl || pic.link ? (
+                        <img
+                          src={pic.previewUrl || pic.link}
+                          className="picture-img"
+                          alt={pic.name || `Picture ${index + 1}`}
+                        />
+                      ) : (
+                        <span className="picture-placeholder">
+                          Click to select
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="picture-info">
+                      <div className="row">
+                        <label>
+                          Priority
+                          <input
+                            type="number"
+                            value={pic.priority ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "priority",
+                                Number(e.target.value)
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label>
+                          Name
+                          <input
+                            type="text"
+                            value={pic.name ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <div className="row">
+                        <label>
+                          Status
+                          <select
+                            value={pic.pictureStatus ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "pictureStatus",
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value="UNDER_REVIEW">Under review</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="FINAL">Final</option>
+                          </select>
+                        </label>
+
+                        {pic.pictureStatus === "REJECTED" && (
+                          <label className="notes-label">
+                            Notes
+                            <textarea
+                              className="notes-textarea"
+                              value={pic.notes ?? ""}
+                              onChange={(e) =>
+                                handlePictureFieldChange(
+                                  index,
+                                  "notes",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleFileChange}
+              />
             </div>
           )}
 
@@ -380,6 +598,18 @@ function GoodForm() {
           </div>
         </form>
       </div>
+
+      {previewPicture && (
+        <div className="picture-modal-backdrop" onClick={handleClosePreview}>
+          <div className="picture-modal" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewPicture.previewUrl || previewPicture.link}
+              alt={previewPicture.name || "Preview"}
+              className="picture-modal-img"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
