@@ -19,14 +19,16 @@ function GoodList() {
       .then((res) => res.json())
       .then((data) => setGoods(data));
 
-    fetch("http://localhost:8080/api/picture-types")
+    fetch("http://localhost:8080/api/v3/picture/types")
       .then((res) => res.json())
       .then((data) => setPictureTypes(data));
 
-    fetch("http://localhost:8080/api/product-types")
-      .then((res) => res.json())
-      .then((data) => setProductTypes(data));
+    // fetch("http://localhost:8080/api/product-types")
+    //   .then((res) => res.json())
+    //   .then((data) => setProductTypes(data));
   }, []);
+
+console.log("Picture Types:", pictureTypes);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -42,9 +44,9 @@ function GoodList() {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
-  const toggleType = (id) => {
+  const toggleType = (short_name) => {
     setSelectedPictureTypes((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+      prev.includes(short_name) ? prev.filter((t) => t !== short_name) : [...prev, short_name]
     );
   };
 
@@ -95,11 +97,11 @@ function GoodList() {
           {isDropdownOpen && (
             <div className="dropdown" ref={dropdownRef}>
               {pictureTypes.map((pt) => (
-                <label key={pt.id} className="checkbox-item">
+                <label key={pt.short_name} className="checkbox-item">
                   <input
                     type="checkbox"
-                    checked={selectedPictureTypes.includes(pt.id)}
-                    onChange={() => toggleType(pt.id)}
+                    checked={selectedPictureTypes.includes(pt.short_name)}
+                    onChange={() => toggleType(pt.short_name)}
                   />
                   {pt.name}
                 </label>
@@ -119,9 +121,9 @@ function GoodList() {
           <tr>
             <th>Name</th>
             <th>SKU</th>
-            {selectedPictureTypes.map((ptId) => {
-              const pt = pictureTypes.find((p) => p.id === ptId);
-              return <th key={ptId}>{pt?.name}</th>;
+            {selectedPictureTypes.map((short_name) => {
+              const pt = pictureTypes.find((p) => p.short_name === short_name);
+              return <th key={short_name}>{pt?.name}</th>;
             })}
             <th></th>
           </tr>
@@ -136,13 +138,13 @@ function GoodList() {
               <td>{good.title}</td>
               <td>{good.sku}</td>
 
-              {selectedPictureTypes.map((ptId) => {
-                const pic = good.pictures?.find((p) => p.typeId === ptId);
+              {selectedPictureTypes.map((short_name) => {
+                const pic = good.pictures?.find((p) => p.short_name === short_name);
                 const hasPhoto = !!pic;
 
                 return (
                   <td
-                    key={ptId}
+                    key={short_name}
                     className={
                       hasPhoto
                         ? "preview-cell has-photo"
