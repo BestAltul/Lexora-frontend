@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./GoodList.css";
 
 function GoodList() {
   const [goods, setGoods] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("http://localhost:8080/api/v3/goods")
@@ -28,21 +29,29 @@ function GoodList() {
             <th>UPC</th>
             <th>Core</th>
             <th>Collection</th>
-            <th>Type</th>
+            <th>Product type</th>
             <th>Actions</th>
           </tr>
         </thead>
 
         <tbody>
           {goods.map((good) => (
-            <tr key={good.id}>
+            <tr
+              key={good.id}
+              onDoubleClick={() => navigate(`/goods/${good.id}`)}
+              style={{ cursor: "pointer" }}
+            >
               <td>{good.title}</td>
               <td>{good.sku}</td>
               <td>{good.upc}</td>
               <td>{good.isCore ? "Yes" : "No"}</td>
               <td>{good.goodsCollectionRecord}</td>
-              <td>{good.pictureType?.name}</td>
-              <td>
+              <td>{good.productType?.name}</td>
+
+              <td
+                onDoubleClick={(e) => e.stopPropagation()}
+                className="edit-cell"
+              >
                 <Link to={`/goods/${good.id}`}>Edit</Link>
               </td>
             </tr>

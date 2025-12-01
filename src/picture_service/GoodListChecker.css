@@ -109,3 +109,35 @@ body {
   cursor: pointer;
   border-radius: 4px;
 }
+.preview-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 6px;
+}
+
+.preview-cell.missing-photo {
+  background: #ffecec;
+}
+
+.no-photo {
+  color: #b30000;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.preview-img {
+  max-width: 80px;
+  max-height: 80px;
+  cursor: pointer;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.preview-cell.has-photo:hover .preview-img {
+  transform: scale(1.05);
+  transition: transform 0.15s ease;
+}
+.goods-table tbody tr {
+  cursor: pointer;
+}
