@@ -38,16 +38,16 @@ function GoodForm() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:8080/api/goods-collections").then((res) =>
-        res.json()
-      ),
-      fetch("http://localhost:8080/api/categories").then((res) => res.json()),
-      fetch("http://localhost:8080/api/product-types").then((res) =>
-        res.json()
-      ),
-      fetch("http://localhost:8080/api/colors").then((res) => res.json()),
-      fetch("http://localhost:8080/api/goods/core").then((res) => res.json()),
-      fetch("http://localhost:8080/api/picture-types").then((res) =>
+      // fetch("http://localhost:8080/api/v3/goods-collections").then((res) =>
+      //   res.json()
+      // ),
+     // fetch("http://localhost:8080/api/v3/categories").then((res) => res.json()),
+      // fetch("http://localhost:8080/api/v3/goods/types").then((res) =>
+      //   res.json()
+      // ),
+      fetch("http://localhost:8080/api/v3/colors").then((res) => res.json()),
+      //fetch("http://localhost:8080/api/v3/goods/core").then((res) => res.json()),
+      fetch("http://localhost:8080/api/v3/picture/types").then((res) =>
         res.ok ? res.json() : []
       ),
     ])
@@ -69,27 +69,35 @@ function GoodForm() {
       });
 
     if (id && id !== "new") {
-      fetch(`http://localhost:8080/api/goods/${id}`)
+      fetch(`http://localhost:8080/api/v3/goods/${id}`)
         .then((res) => res.json())
         .then((data) =>
           setGood((prev) => ({
             ...prev,
             sku: data.sku || "",
+            id: data.id || "",
             oldSku: data.oldSku || "",
             title: data.title || "",
             upc: data.upc || "",
-            kitOrSingle: data.kitOrSingle || "SINGLE",
+       //     kitOrSingle: data.kitOrSingle || "SINGLE",
             isCore: data.isCore ?? true,
-            coreGoodId: data.coreGood?.id || "",
-            goodsCollectionId: data.goodsCollection?.id || "",
-            categoryId: data.category?.id || "",
-            productTypeId: data.productType?.id || "",
-            colorId: data.color?.id || "",
-            mainPictureLink: prev.mainPictureLink,
+       //     coreGoodId: data.coreGood?.id || "",
+       //     goodsCollectionId: data.goodsCollection?.id || "",
+       //     categoryId: data.category?.id || "",
+       //     productTypeId: data.productType?.id || "",
+       //     colorId: data.color?.id || "",
+            picture: pictures.map((pic) => ({
+    id: pic.id,
+    name: pic.name,
+    link: pic.link,      
+    priority: pic.priority,
+    notes: pic.notes,
+    pictureStatus: pic.pictureStatus,
+  })),
           }))
         );
 
-      fetch(`http://localhost:8080/api/goods/${id}/pictures`)
+      fetch(`http://localhost:8080/api/v3/picture/${id}/pictures`)
         .then((res) => (res.ok ? res.json() : []))
         .then((data) => {
           setPictures(
@@ -108,6 +116,8 @@ function GoodForm() {
     }
   }, [id]);
 
+  console.log("Current pictures state:", pictures);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -124,30 +134,39 @@ function GoodForm() {
     const method = id && id !== "new" ? "PUT" : "POST";
     const url =
       id && id !== "new"
-        ? `http://localhost:8080/api/goods/${id}`
-        : "http://localhost:8080/api/goods";
+        ? `http://localhost:8080/api/v3/goods/${id}`
+        : "http://localhost:8080/api/v3/goods";
 
     const payload = {
       sku: good.sku,
       oldSku: good.oldSku,
       title: good.title,
       upc: good.upc,
-      kitOrSingle: good.kitOrSingle,
-      isCore: good.isCore,
-      coreGoodId: good.isCore ? null : good.coreGoodId,
-      goodsCollectionId: good.goodsCollectionId,
-      categoryId: good.categoryId,
-      productTypeId: good.productTypeId,
-      colorId: good.colorId,
-      mainPictureLink: good.mainPictureLink,
+      // kitOrSingle: good.kitOrSingle,
+      // isCore: good.isCore,
+      // coreGoodId: good.isCore ? null : good.coreGoodId,
+      // goodsCollectionId: good.goodsCollectionId,
+      // categoryId: good.categoryId,
+      // productTypeId: good.productTypeId,
+      // colorId: good.colorId,
+         picture: pictures.map((pic) => ({
+    id: pic.id,
+    name: pic.name,
+    link: pic.link || pic.previewUrl,     
+    priority: pic.priority,
+    notes: pic.notes,
+    pictureStatus: pic.pictureStatus,
+  })),
     };
+
+    console.log("Submitting payload:", payload);
 
     fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then(() => {
-      navigate("/goods");
+      navigate("/goodlist-checker");
     });
   };
 
@@ -243,7 +262,7 @@ function GoodForm() {
 
         <div className="header-text-block">
           <h2 className="form-title">{titleText}</h2>
-          <Link to="/goods" className="back-link">
+          <Link to="/goodlist-checker" className="back-link">
             ← Back to list
           </Link>
         </div>
@@ -368,10 +387,9 @@ function GoodForm() {
                 )}
               </div>
 
-              <div className="section">
-                <h3>Main picture</h3>
+              <div className="section">             
 
-                <div className="row">
+                {/* <div className="row">
                   <label>
                     Picture URL
                     <input
@@ -382,7 +400,7 @@ function GoodForm() {
                       placeholder="https://..."
                     />
                   </label>
-                </div>
+                </div> */}
               </div>
 
               <div className="section">

@@ -7,6 +7,7 @@ import Desktop from "./home/Desktop";
 import GoodList from "./picture_service/GoodListForm";
 import GoodForm from "./picture_service/GoodForm";
 import GoodListChecker from "./picture_service/GoodListCheckerForm";
+import PictureForm from "./picture_service/PictureForm";
 
 function App() {
   return (    
@@ -19,6 +20,8 @@ function App() {
         <Route path="/goodlist-checker" element={<GoodListChecker />} />
         <Route path="/goods/:id" element={<GoodForm />} />
         <Route path="/goods/new" element={<GoodForm />} />
+        <Route path="/picture" element={<PictureForm />} />
+        <Route path="/picture/:id" element={<PictureForm />} />
       </Routes>
     </MainLayout>    
   );
