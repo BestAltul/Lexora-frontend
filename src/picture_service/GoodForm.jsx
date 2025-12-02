@@ -1,184 +1,617 @@
 import { useEffect, useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "./GoodList.css";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import "./GoodForm.css";
 
-function GoodList() {
-  const [goods, setGoods] = useState([]);
-  const [filters, setFilters] = useState({ title: "", sku: "" });
-  const [pictureTypes, setPictureTypes] = useState([]);
-  const [selectedPictureTypes, setSelectedPictureTypes] = useState([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+function GoodForm() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetch("http://localhost:8080/api/v3/goods")
-      .then((res) => res.json())
-      .then((data) => setGoods(data || []))
-      .catch(() => setGoods([]));
+  const [activeTab, setActiveTab] = useState("general");
 
-    fetch("http://localhost:8080/api/v3/picture/types")
-      .then((res) => res.json())
-      .then((data) => setPictureTypes(data || []))
-      .catch(() => setPictureTypes([]));
-  }, []);
+  const [good, setGood] = useState({
+    sku: "",
+    oldSku: "",
+    title: "",
+    upc: "",
+    kitOrSingle: "SINGLE",
+    isCore: true,
+    coreGoodId: "",
+    goodsCollectionId: "",
+    categoryId: "",
+    productTypeId: "",
+    colorId: "",
+    mainPictureLink: "",
+  });
+
+  const [collections, setCollections] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [colors, setColors] = useState([]);
+  const [coreGoods, setCoreGoods] = useState([]);
+
+  const [pictureTypes, setPictureTypes] = useState([]);
+
+  const [pictures, setPictures] = useState([]);
+  const fileInputRef = useRef(null);
+  const [fileInputIndex, setFileInputIndex] = useState(null);
+  const [previewPicture, setPreviewPicture] = useState(null);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsDropdownOpen(false);
-      }
+    Promise.all([
+      fetch("http://localhost:8080/api/goods-collections").then((res) =>
+        res.json()
+      ),
+      fetch("http://localhost:8080/api/categories").then((res) => res.json()),
+      fetch("http://localhost:8080/api/product-types").then((res) =>
+        res.json()
+      ),
+      fetch("http://localhost:8080/api/colors").then((res) => res.json()),
+      fetch("http://localhost:8080/api/goods/core").then((res) => res.json()),
+      fetch("http://localhost:8080/api/picture-types").then((res) =>
+        res.ok ? res.json() : []
+      ),
+    ])
+      .then(([c1, c2, c3, c4, c5, c6]) => {
+        setCollections(c1);
+        setCategories(c2);
+        setTypes(c3);
+        setColors(c4);
+        setCoreGoods(c5);
+        setPictureTypes(c6 || []);
+      })
+      .catch(() => {
+        setCollections([]);
+        setCategories([]);
+        setTypes([]);
+        setColors([]);
+        setCoreGoods([]);
+        setPictureTypes([]);
+      });
+
+    if (id && id !== "new") {
+      fetch(`http://localhost:8080/api/goods/${id}`)
+        .then((res) => res.json())
+        .then((data) =>
+          setGood((prev) => ({
+            ...prev,
+            sku: data.sku || "",
+            oldSku: data.oldSku || "",
+            title: data.title || "",
+            upc: data.upc || "",
+            kitOrSingle: data.kitOrSingle || "SINGLE",
+            isCore: data.isCore ?? true,
+            coreGoodId: data.coreGood?.id || "",
+            goodsCollectionId: data.goodsCollection?.id || "",
+            categoryId: data.category?.id || "",
+            productTypeId: data.productType?.id || "",
+            colorId: data.color?.id || "",
+            mainPictureLink: prev.mainPictureLink,
+          }))
+        );
+
+      fetch(`http://localhost:8080/api/goods/${id}/pictures`)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => {
+          setPictures(
+            (data || []).map((p) => ({
+              ...p,
+              previewUrl: p.link,
+              file: null,
+            }))
+          );
+        })
+        .catch(() => {
+          setPictures([]);
+        });
+    } else {
+      setPictures([]);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [id]);
 
-  const handleTextFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    setGood((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "isCore" && checked ? { coreGoodId: "" } : {}),
+    }));
   };
 
-  const toggleType = (short_name) => {
-    setSelectedPictureTypes((prev) =>
-      prev.includes(short_name)
-        ? prev.filter((t) => t !== short_name)
-        : [...prev, short_name]
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const method = id && id !== "new" ? "PUT" : "POST";
+    const url =
+      id && id !== "new"
+        ? `http://localhost:8080/api/goods/${id}`
+        : "http://localhost:8080/api/goods";
+
+    const payload = {
+      sku: good.sku,
+      oldSku: good.oldSku,
+      title: good.title,
+      upc: good.upc,
+      kitOrSingle: good.kitOrSingle,
+      isCore: good.isCore,
+      coreGoodId: good.isCore ? null : good.coreGoodId,
+      goodsCollectionId: good.goodsCollectionId,
+      categoryId: good.categoryId,
+      productTypeId: good.productTypeId,
+      colorId: good.colorId,
+      mainPictureLink: good.mainPictureLink,
+    };
+
+    fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(() => {
+      navigate("/goods");
+    });
+  };
+
+  const handlePictureClick = (index) => {
+    setFileInputIndex(index);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || fileInputIndex === null) return;
+
+    const url = URL.createObjectURL(file);
+
+    setPictures((prev) =>
+      prev.map((pic, idx) =>
+        idx === fileInputIndex
+          ? {
+              ...pic,
+              file,
+              previewUrl: url,
+            }
+          : pic
+      )
     );
   };
 
-  const filteredGoods = goods.filter((good) => {
-    const titleMatch = good.title
-      ?.toLowerCase()
-      .includes(filters.title.toLowerCase());
-    const skuMatch = good.sku
-      ?.toLowerCase()
-      .includes(filters.sku.toLowerCase());
-    return titleMatch && skuMatch;
-  });
+  const handlePictureFieldChange = (index, field, value) => {
+    setPictures((prev) =>
+      prev.map((pic, idx) => {
+        if (idx !== index) return pic;
+
+        if (field === "pictureStatus") {
+          const newStatus = value;
+          return {
+            ...pic,
+            pictureStatus: newStatus,
+            notes: newStatus === "REJECTED" ? pic.notes || "" : "",
+          };
+        }
+
+        return {
+          ...pic,
+          [field]: value,
+        };
+      })
+    );
+  };
+
+  const handlePictureDoubleClick = (pic) => {
+    if (!pic.previewUrl && !pic.link) return;
+    setPreviewPicture(pic);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewPicture(null);
+  };
+
+  const handleAddPicture = () => {
+    setPictures((prev) => [
+      ...prev,
+      {
+        id: null,
+        name: "",
+        link: "",
+        priority: prev.length + 1,
+        notes: "",
+        pictureStatus: "UNDER_REVIEW",
+        previewUrl: "",
+        file: null,
+      },
+    ]);
+  };
+
+  const titleText = id === "new" ? "Create new Good" : "Edit Good";
 
   return (
     <div className="page-container">
-      <div className="table-header-card">
-        <h2 className="table-title">List of goods</h2>
-        <Link to="/goods/new" className="table-add-btn">
-          Add new
-        </Link>
-      </div>
-
-      <div className="filters">
-        <input
-          type="text"
-          name="title"
-          placeholder="Filter by name"
-          value={filters.title}
-          onChange={handleTextFilterChange}
-        />
-        <input
-          type="text"
-          name="sku"
-          placeholder="Filter by SKU"
-          value={filters.sku}
-          onChange={handleTextFilterChange}
-        />
-
-        <div className="photo-type-filter">
-          <button
-            type="button"
-            className="filter-btn"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          >
-            Picture types ▾
-          </button>
-
-          {isDropdownOpen && (
-            <div className="dropdown" ref={dropdownRef}>
-              {pictureTypes.map((pt) => (
-                <label key={pt.short_name} className="checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={selectedPictureTypes.includes(pt.short_name)}
-                    onChange={() => toggleType(pt.short_name)}
-                  />
-                  {pt.name}
-                </label>
-              ))}
-            </div>
+      <div className="form-header-with-picture">
+        <div className="header-picture-square">
+          {good.mainPictureLink ? (
+            <img
+              src={good.mainPictureLink}
+              className="header-picture-img"
+              alt="Preview"
+            />
+          ) : (
+            <div className="header-picture-placeholder">No image</div>
           )}
+        </div>
+
+        <div className="header-text-block">
+          <h2 className="form-title">{titleText}</h2>
+          <Link to="/goodlist-checker" className="back-link">
+            ← Back to list
+          </Link>
         </div>
       </div>
 
-      <div style={{ marginTop: "10px", fontSize: "12px", color: "#888" }}>
-        Debug pictureTypes: {pictureTypes.map((pt) => pt.name).join(", ")}
-      </div>
+      <div className="good-form-card">
+        <div className="tabs">
+          <button
+            type="button"
+            className={`tab-btn ${
+              activeTab === "general" ? "tab-btn--active" : ""
+            }`}
+            onClick={() => setActiveTab("general")}
+          >
+            General
+          </button>
+          <button
+            type="button"
+            className={`tab-btn ${
+              activeTab === "pictures" ? "tab-btn--active" : ""
+            }`}
+            onClick={() => setActiveTab("pictures")}
+          >
+            Pictures
+          </button>
+        </div>
 
-      <table className="goods-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>SKU</th>
-            {selectedPictureTypes.map((short_name) => {
-              const pt = pictureTypes.find((p) => p.short_name === short_name);
-              return <th key={short_name}>{pt?.name || short_name}</th>;
-            })}
-            <th></th>
-          </tr>
-        </thead>
+        <form onSubmit={handleSubmit}>
+          {activeTab === "general" && (
+            <>
+              <div className="section">
+                <h3>Basic information</h3>
 
-        <tbody>
-          {filteredGoods.map((good) => {
-            const picturesArray = good.picture || good.pictures || [];
+                <div className="row">
+                  <label>
+                    SKU*
+                    <input
+                      type="text"
+                      name="sku"
+                      value={good.sku}
+                      onChange={handleChange}
+                    />
+                  </label>
 
-            return (
-              <tr
-                key={good.id}
-                onDoubleClick={() => navigate(`/goods/${good.id}`)}
-              >
-                <td>{good.title}</td>
-                <td>{good.sku}</td>
+                  <label>
+                    Old SKU
+                    <input
+                      type="text"
+                      name="oldSku"
+                      value={good.oldSku}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </div>
 
-                {selectedPictureTypes.map((short_name) => {
-                  const pic = picturesArray.find(
-                    (p) => p.pictureType?.short_name === short_name
-                  );
-                  const hasPhoto = !!pic;
+                <div className="row">
+                  <label>
+                    Title*
+                    <input
+                      type="text"
+                      name="title"
+                      value={good.title}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </div>
 
-                  return (
-                    <td
-                      key={short_name}
-                      className={
-                        hasPhoto
-                          ? "preview-cell has-photo"
-                          : "preview-cell missing-photo"
-                      }
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        if (hasPhoto) {
-                          navigate(`/picture/${pic.id}`);
-                        }
-                      }}
+                <div className="row">
+                  <label>
+                    UPC
+                    <input
+                      type="text"
+                      name="upc"
+                      value={good.upc}
+                      onChange={handleChange}
+                    />
+                  </label>
+
+                  <label>
+                    Kit / Single
+                    <select
+                      name="kitOrSingle"
+                      value={good.kitOrSingle}
+                      onChange={handleChange}
                     >
-                      {hasPhoto ? (
+                      <option value="SINGLE">Single</option>
+                      <option value="KIT">Kit</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="isCore"
+                      checked={good.isCore}
+                      onChange={handleChange}
+                    />
+                    This is a core item
+                  </label>
+                </div>
+
+                {!good.isCore && (
+                  <div className="row">
+                    <label>
+                      Core good*
+                      <select
+                        name="coreGoodId"
+                        value={good.coreGoodId}
+                        onChange={handleChange}
+                      >
+                        <option value="">Select core item</option>
+                        {coreGoods.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="section">
+                <h3>Main picture</h3>
+
+                <div className="row">
+                  <label>
+                    Picture URL
+                    <input
+                      type="text"
+                      name="mainPictureLink"
+                      value={good.mainPictureLink}
+                      onChange={handleChange}
+                      placeholder="https://..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="section">
+                <h3>Classification</h3>
+
+                <div className="row">
+                  <label>
+                    Collection*
+                    <select
+                      name="goodsCollectionId"
+                      value={good.goodsCollectionId}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select collection</option>
+                      {collections.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Category*
+                    <select
+                      name="categoryId"
+                      value={good.categoryId}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="row">
+                  <label>
+                    Product Type*
+                    <select
+                      name="productTypeId"
+                      value={good.productTypeId}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select type</option>
+                      {types.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Color*
+                    <select
+                      name="colorId"
+                      value={good.colorId}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select color</option>
+                      {colors.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "pictures" && (
+            <div className="section">
+              <div className="pictures-header">
+                <h3>Pictures</h3>
+                <button
+                  type="button"
+                  className="add-picture-btn"
+                  onClick={handleAddPicture}
+                >
+                  + Add picture
+                </button>
+              </div>
+
+              <div className="pictures-grid">
+                {pictures.length === 0 && (
+                  <p className="muted">
+                    No pictures yet. Click “Add picture” to create a slot.
+                  </p>
+                )}
+
+                {pictures.map((pic, index) => (
+                  <div className="picture-card" key={pic.id || index}>
+                    <div
+                      className="picture-square"
+                      onClick={() => handlePictureClick(index)}
+                      onDoubleClick={() => handlePictureDoubleClick(pic)}
+                    >
+                      {pic.previewUrl || pic.link ? (
                         <img
-                          src={pic.thumbnailUrl || pic.link}
-                          alt={pic.name || ""}
-                          className="preview-img"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(pic.fullUrl || pic.link, "_blank");
-                          }}
+                          src={pic.previewUrl || pic.link}
+                          className="picture-img"
+                          alt={pic.name || `Picture ${index + 1}`}
                         />
                       ) : (
-                        <span className="no-photo">No photo</span>
+                        <span className="picture-placeholder">
+                          Click to select
+                        </span>
                       )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    </div>
+
+                    <div className="picture-info">
+                      <div className="row">
+                        <label>
+                          Priority
+                          <input
+                            type="number"
+                            value={pic.priority ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "priority",
+                                Number(e.target.value)
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label>
+                          Name
+                          <input
+                            type="text"
+                            value={pic.name ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <div className="row">
+                        <label>
+                          Status
+                          <select
+                            value={pic.pictureStatus ?? ""}
+                            onChange={(e) =>
+                              handlePictureFieldChange(
+                                index,
+                                "pictureStatus",
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value="UNDER_REVIEW">Under review</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="FINAL">Final</option>
+                          </select>
+                        </label>
+
+                        {pic.pictureStatus === "REJECTED" && (
+                          <label className="notes-label">
+                            Notes
+                            <textarea
+                              className="notes-textarea"
+                              value={pic.notes ?? ""}
+                              onChange={(e) =>
+                                handlePictureFieldChange(
+                                  index,
+                                  "notes",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleFileChange}
+              />
+            </div>
+          )}
+
+          <div className="actions">
+            <button type="submit" className="save-btn">
+              Save
+            </button>
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={() => navigate("/goodlist-checker")}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {previewPicture && (
+        <div className="picture-modal-backdrop" onClick={handleClosePreview}>
+          <div className="picture-modal" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewPicture.previewUrl || previewPicture.link}
+              alt={previewPicture.name || "Preview"}
+              className="picture-modal-img"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default GoodList;
+export default GoodForm;

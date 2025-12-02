@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import "./PictureForm.css";
 
 function PictureForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+
+  const goodIdFromQuery = query.get("goodId");
+  const typeFromQuery = query.get("type");
+  const nameFromQuery = query.get("name");
 
   const [pictureTypes, setPictureTypes] = useState([]);
+  const [pictureStatus, setPictureStatuses] = useState([]);
   const [goodId, setGoodId] = useState("");
 
   const [picture, setPicture] = useState({
@@ -17,14 +25,40 @@ function PictureForm() {
     pictureTypeId: "",
   });
 
+  const [picturePreview, setPicturePreview] = useState("");
+  const fileInputRef = useRef(null);
+
+  
   useEffect(() => {
-    fetch("http://localhost:8080/api/v3/picture-type")
+    fetch("http://localhost:8080/api/v3/picture/types")
       .then((res) => res.json())
-      .then((data) => setPictureTypes(data));
+      .then((data) => setPictureTypes(data || []))
+      .catch(() => setPictureTypes([]));
   }, []);
 
+  
   useEffect(() => {
-    if (!id) return;
+    fetch("http://localhost:8080/api/v3/picture/statuses")
+      .then((res) => res.json())
+      .then((data) => setPictureStatuses(data || []))
+      .catch(() => setPictureStatuses([]));
+  }, []);
+
+  
+  useEffect(() => {
+    if (id === "new") {
+      if (pictureTypes.length === 0) return;
+      setPicture({
+        ...picture,
+        name: nameFromQuery || "",
+        pictureTypeId:
+          pictureTypes.find((pt) => pt.short_name === typeFromQuery)?.short_name || "",
+      });
+      setGoodId(goodIdFromQuery || "");
+      return;
+    }
+
+    
 
     fetch(`http://localhost:8080/api/v3/picture/${id}`)
       .then((res) => res.json())
@@ -35,30 +69,54 @@ function PictureForm() {
           priority: data.priority,
           notes: data.notes,
           pictureStatus: data.pictureStatus,
-          pictureTypeId: data.pictureType?.id || "",
+          pictureTypeId: data.pictureType?.short_name || "",
         });
         setGoodId(data.good?.id || "");
+        if (data.link) setPicturePreview(data.link);
       });
-  }, [id]);
+  }, [id, pictureTypes, nameFromQuery, typeFromQuery, goodIdFromQuery]);
 
   const handleChange = (e) => {
     setPicture({ ...picture, [e.target.name]: e.target.value });
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => setPicturePreview(reader.result);
+    reader.readAsDataURL(file);
+
+    setPicture({ ...picture, file });
+  };
+console.log("File to send:", picture.file);
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const method = id ? "PUT" : "POST";
+    const method = id && id !== "new" ? "PUT" : "POST";
 
-    const response = await fetch("http://localhost:8080/api/v3/picture", {
+    const formData = new FormData();
+    formData.append("name", picture.name);
+    formData.append("priority", picture.priority);
+    formData.append("notes", picture.notes);
+    formData.append("pictureStatus", picture.pictureStatus);
+    formData.append("pictureTypeId", picture.pictureTypeId);
+    formData.append("goodId", goodId);
+
+    if (picture.file) {
+      formData.append("file", picture.file);
+    } else if (picturePreview) {
+      formData.append("link", picturePreview);
+    }
+
+    const response = await fetch("http://localhost:8080/api/v3/picture/", {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...picture,
-        goodId,
-      }),
+      body: formData,
+      credentials: "include",
     });
 
+    console.log("Response status:", method);
     if (response.ok) {
       navigate("/pictures");
     } else {
@@ -67,81 +125,109 @@ function PictureForm() {
   };
 
   return (
-    <div className="page-container">
-      <h2>{id ? "Edit Picture" : "Add Picture"}</h2>
+    <div className="picture-page">
+      <h2>{id && id !== "new" ? "Edit Picture" : "Add Picture"}</h2>
 
-      <form onSubmit={handleSubmit} className="picture-form">
-        <label>
-          Name:
-          <input
-            type="text"
-            name="name"
-            value={picture.name}
-            onChange={handleChange}
-          />
-        </label>
+      <form onSubmit={handleSubmit} className="picture-form-grid">
+        <div
+          className="picture-preview"
+          onDoubleClick={() => fileInputRef.current.click()}
+          title="Double click to upload photo"
+          style={{ cursor: "pointer" }}
+        >
+          {picturePreview ? (
+            <img src={picturePreview} alt="Preview" />
+          ) : (
+            <div className="placeholder">Double click to upload</div>
+          )}
+        </div>
 
-        <label>
-          Link:
-          <input
-            type="text"
-            name="link"
-            value={picture.link}
-            onChange={handleChange}
-          />
-        </label>
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
+        />
 
-        <label>
-          Priority:
-          <input
-            type="number"
-            name="priority"
-            value={picture.priority}
-            onChange={handleChange}
-          />
-        </label>
+        <div className="picture-fields">
+          <label>
+            Name:
+            <input
+              type="text"
+              name="name"
+              disabled 
+              value={picture.name}
+              onChange={handleChange}
+            />
+          </label>
 
-        <label>
-          Notes:
-          <textarea
-            name="notes"
-            rows="4"
-            value={picture.notes}
-            onChange={handleChange}
-          />
-        </label>
+          <label>
+            Picture Type:
+            <select
+              name="pictureTypeId"
+              value={picture.pictureTypeId}
+              disabled 
+              onChange={handleChange}
+            >
+              <option value="">Select type</option>
+              {pictureTypes.map((pt) => (
+                <option key={pt.short_name} value={pt.short_name}>
+                  {pt.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label>
-          Status:
-          <select
-            name="pictureStatus"
-            value={picture.pictureStatus}
-            onChange={handleChange}
-          >
-            <option value="UNDER_REVIEW">UNDER_REVIEW</option>
-            <option value="PROVED">PROVED</option>
-            <option value="FINAL">FINAL</option>
-          </select>
-        </label>
+          <label>
+            Status:
+            <select
+              name="pictureStatus"
+              value={picture.pictureStatus}
+              onChange={handleChange}
+            >
+              <option value="">Select status</option>
+              {pictureStatus.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label>
-          Picture Type:
-          <select
-            name="pictureTypeId"
-            value={picture.pictureTypeId}
-            onChange={handleChange}
-          >
-            <option value="">Select type</option>
-            {pictureTypes.map((pt) => (
-              <option key={pt.id} value={pt.id}>
-                {pt.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label>
+            Priority:
+            <input
+              type="number"
+              name="priority"
+              value={picture.priority}
+              onChange={handleChange}
+            />
+          </label>
 
-        <button type="submit">{id ? "Save Changes" : "Create Picture"}</button>
+          <label>
+            Notes:
+            <textarea
+              name="notes"
+              rows="4"
+              value={picture.notes}
+              onChange={handleChange}
+            />
+          </label>
+        </div>
       </form>
+
+      <div className="picture-buttons">
+        <button className="btn-primary" onClick={handleSubmit}>
+          Save
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={() => navigate("/goodlist-checker")}
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

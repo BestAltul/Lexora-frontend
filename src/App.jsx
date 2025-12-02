@@ -15,8 +15,7 @@ function App() {
       <Routes>     
         <Route path="/login" element={<Login/>}/>           
         <Route path="/core/reset-password-request" element={<ResetPasswordPage />} />
-        <Route path="/desktop" element={<Desktop />} />
-        <Route path="/goods" element={<GoodList />} />
+        <Route path="/desktop" element={<Desktop />} />        
         <Route path="/goodlist-checker" element={<GoodListChecker />} />
         <Route path="/goods/:id" element={<GoodForm />} />
         <Route path="/goods/new" element={<GoodForm />} />

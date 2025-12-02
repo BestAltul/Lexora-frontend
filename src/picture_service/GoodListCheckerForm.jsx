@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./GoodList.css";
+import { useLocation } from "react-router-dom";
+
 
 function GoodList() {
   const [goods, setGoods] = useState([]);
@@ -10,31 +12,27 @@ function GoodList() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  
+  const location = useLocation();
+  const query = new URLSearchParams(useLocation().search);
 
+  const goodIdFromQuery = query.get("goodId");
+  const typeFromQuery = query.get("type");
+
+  
   useEffect(() => {
     fetch("http://localhost:8080/api/v3/goods")
       .then((res) => res.json())
-      .then((data) => {
-        console.log("Goods from backend:", data);
-        setGoods(data || []);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch GOODS:", err);
-        setGoods([]);
-      });
+      .then((data) => setGoods(data || []))
+      .catch(() => setGoods([]));
 
     fetch("http://localhost:8080/api/v3/picture/types")
       .then((res) => res.json())
-      .then((data) => {
-        console.log("Picture types from backend:", data);
-        setPictureTypes(data || []);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch PICTURE TYPES:", err);
-        setPictureTypes([]);
-      });
+      .then((data) => setPictureTypes(data || []))
+      .catch(() => setPictureTypes([]));
   }, []);
 
+  
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -140,53 +138,70 @@ function GoodList() {
             const picturesArray = good.picture || good.pictures || [];
 
             return (
-              <tr
-                key={good.id}
-                onDoubleClick={() => navigate(`/goods/${good.id}`)}
-              >
-                <td>{good.title}</td>
-                <td>{good.sku}</td>
+              <tr key={good.id}>
+              
+                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>
+                  {good.title}
+                </td>
+                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>
+                  {good.sku}
+                </td>
 
-                {selectedPictureTypes.map((short_name) => {
-                  const pic = picturesArray.find(
-                    (p) =>
-                      p.pictureType?.short_name === short_name ||
-                      p.short_name === short_name
-                  );
+{selectedPictureTypes.map((short_name) => {
+  const pic = picturesArray.find(
+    (p) =>
+      p.pictureType?.short_name === short_name ||
+      p.short_name === short_name
+  );
 
-                  const hasPhoto = !!pic;
+  const hasFile = pic && (pic.thumbnailUrl || pic.link);
 
-                  return (
-                    <td
-                      key={short_name}
-                      className={
-                        hasPhoto
-                          ? "preview-cell has-photo"
-                          : "preview-cell missing-photo"
-                      }
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        if (hasPhoto) {
-                          navigate(`/picture/${pic.id}`);
-                        }
-                      }}
-                    >
-                      {hasPhoto ? (
-                        <img
-                          src={pic.thumbnailUrl || pic.link}
-                          alt={pic.name || ""}
-                          className="preview-img"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(pic.fullUrl || pic.link, "_blank");
-                          }}
-                        />
-                      ) : (
-                        <span className="no-photo">No photo</span>
-                      )}
-                    </td>
-                  );
-                })}
+  return (
+    <td
+      key={short_name}
+      className={hasFile ? "has-photo" : "missing-photo"}
+    >
+      {hasFile ? (
+        
+        <img
+          src={pic.thumbnailUrl || pic.link}
+          alt={pic.name || ""}
+          className="preview-img"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            navigate(`/picture/${pic.id,pic.name}`);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(pic.fullUrl || pic.link, "_blank");
+          }}
+        />
+
+      ) : (
+        
+<span
+  className="no-photo"
+  style={{ cursor: "pointer", color: "#007bff" }}
+  onClick={() => {
+    if (pic) {
+      navigate(`/picture/${pic.id}`);
+    } else {
+      
+      navigate(
+        `/picture/new?goodId=${good.id}&type=${short_name}&name=${encodeURIComponent(good.title)}`
+      );
+    }
+  }}
+>
+  {pic ? "Add file" : "Add photo"}
+</span>
+
+      )}
+    </td>
+  );
+})}
+
+
               </tr>
             );
           })}
