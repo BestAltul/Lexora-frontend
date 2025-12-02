@@ -6,7 +6,6 @@ function GoodList() {
   const [goods, setGoods] = useState([]);
   const [filters, setFilters] = useState({ title: "", sku: "" });
   const [pictureTypes, setPictureTypes] = useState([]);
-  const[pictureList, setPictureList]=useState([]);
   const [selectedPictureTypes, setSelectedPictureTypes] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -15,15 +14,25 @@ function GoodList() {
   useEffect(() => {
     fetch("http://localhost:8080/api/v3/goods")
       .then((res) => res.json())
-      .then((data) => setGoods(data));
+      .then((data) => {
+        console.log("Goods from backend:", data);
+        setGoods(data || []);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch GOODS:", err);
+        setGoods([]);
+      });
 
     fetch("http://localhost:8080/api/v3/picture/types")
       .then((res) => res.json())
-      .then((data) => setPictureTypes(data));
-      
-    fetch("http://localhost:8080/api/v3/picture")
-      .then((res) => res.json())
-      .then((data) => setPictureList(data));
+      .then((data) => {
+        console.log("Picture types from backend:", data);
+        setPictureTypes(data || []);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch PICTURE TYPES:", err);
+        setPictureTypes([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -120,63 +129,68 @@ function GoodList() {
             <th>SKU</th>
             {selectedPictureTypes.map((short_name) => {
               const pt = pictureTypes.find((p) => p.short_name === short_name);
-              return <th key={short_name}>{pt?.name}</th>;
+              return <th key={short_name}>{pt?.name || short_name}</th>;
             })}
             <th></th>
           </tr>
         </thead>
 
-<tbody>
-  {filteredGoods.map((good) => (
-    <tr
-      key={good.id}
-      onDoubleClick={() => navigate(`/goods/${good.id}`)}
-    >
-      <td>{good.title}</td>
-      <td>{good.sku}</td>
+        <tbody>
+          {filteredGoods.map((good) => {
+            const picturesArray = good.picture || good.pictures || [];
 
-      {selectedPictureTypes.map((short_name) => {
-        const pic = good.pictures?.find(
-          (p) => p.short_name === short_name
-        );
-        const hasPhoto = !!pic;
+            return (
+              <tr
+                key={good.id}
+                onDoubleClick={() => navigate(`/goods/${good.id}`)}
+              >
+                <td>{good.title}</td>
+                <td>{good.sku}</td>
 
-        return (
-          <td
-            key={short_name}
-            className={
-              hasPhoto
-                ? "preview-cell has-photo"
-                : "preview-cell missing-photo"
-            }
-            onDoubleClick={(e) => {
-              e.stopPropagation(); ы
-              if (hasPhoto) {
-                navigate(`/picture/${pic.id}`);  
-              }
-            }}
-          >
-            {hasPhoto ? (
-              <img
-                src={pic.thumbnailUrl}
-                alt=""
-                className="preview-img"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(pic.fullUrl, "_blank");
-                }}
-              />
-            ) : (
-              <span className="no-photo">No photo</span>
-            )}
-          </td>
-        );
-      })}
-    </tr>
-  ))}
-</tbody>
+                {selectedPictureTypes.map((short_name) => {
+                  const pic = picturesArray.find(
+                    (p) =>
+                      p.pictureType?.short_name === short_name ||
+                      p.short_name === short_name
+                  );
 
+                  const hasPhoto = !!pic;
 
+                  return (
+                    <td
+                      key={short_name}
+                      className={
+                        hasPhoto
+                          ? "preview-cell has-photo"
+                          : "preview-cell missing-photo"
+                      }
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        if (hasPhoto) {
+                          navigate(`/picture/${pic.id}`);
+                        }
+                      }}
+                    >
+                      {hasPhoto ? (
+                        <img
+                          src={pic.thumbnailUrl || pic.link}
+                          alt={pic.name || ""}
+                          className="preview-img"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(pic.fullUrl || pic.link, "_blank");
+                          }}
+                        />
+                      ) : (
+                        <span className="no-photo">No photo</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
       </table>
     </div>
   );
