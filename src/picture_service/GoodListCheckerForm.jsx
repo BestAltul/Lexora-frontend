@@ -28,6 +28,12 @@ function GoodListChecker() {
   const navigate = useNavigate();
   const [previewPicture, setPreviewPicture] = useState(null);
   const clickTimer = useRef(null);
+  const [expandedPic, setExpandedPic] = useState(null);
+  const modalNotesRef = useRef(null);
+  const [localNote, setLocalNote] = useState("");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMSPER_PAGE = 20;
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v3/goods`)
@@ -51,8 +57,17 @@ function GoodListChecker() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (expandedPic) {
+      const fullGood = goods.find((g) => g.id === expandedPic.goodId);
+      const fullPic = fullGood.picture.find((p) => p.id === expandedPic.pictureId);
+      setLocalNote(fullPic.note || "");
+    }
+  }, [expandedPic, goods]);
+
   const handleTextFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+    setCurrentPage(1);
   };
 
   const toggleType = (short_name) => {
@@ -67,16 +82,65 @@ function GoodListChecker() {
     const titleMatch = good.title
       ?.toLowerCase()
       .includes(filters.title.toLowerCase());
-    const skuMatch = good.sku
-      ?.toLowerCase()
-      .includes(filters.sku.toLowerCase());
+    const skuMatch = good.sku?.toLowerCase().includes(filters.sku.toLowerCase());
     return titleMatch && skuMatch;
   });
+
+  const totalPages = Math.ceil(filteredGoods.length / ITEMSPER_PAGE);
+  const paginatedGoods = filteredGoods.slice(
+    (currentPage - 1) * ITEMSPER_PAGE,
+    currentPage * ITEMSPER_PAGE
+  );
+
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  const nextPage = () => goToPage(currentPage + 1);
+  const prevPage = () => goToPage(currentPage - 1);
+
+  const updatePictureStatus = (goodId, pictureId, status) => {
+    setGoods((prevGoods) =>
+      prevGoods.map((good) => {
+        if (good.id !== goodId) return good;
+        const updatedPictures = (good.picture || good.pictures || []).map((pic) => {
+          if (pic.id !== pictureId) return pic;
+          return { ...pic, status };
+        });
+        return { ...good, picture: updatedPictures, pictures: updatedPictures };
+      })
+    );
+  };
+
+  const updatePictureNote = (goodId, pictureId, note) => {
+    setGoods((prevGoods) =>
+      prevGoods.map((good) => {
+        if (good.id !== goodId) return good;
+        const updatedPictures = (good.picture || good.pictures || []).map((pic) => {
+          if (pic.id !== pictureId) return pic;
+          return { ...pic, note };
+        });
+        return { ...good, picture: updatedPictures, pictures: updatedPictures };
+      })
+    );
+  };
+
+  const saveNote = () => {
+    updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
+    setExpandedPic(null);
+  };
+
+  useEffect(() => {
+  if (expandedPic && modalNotesRef.current) {
+    modalNotesRef.current.focus();
+  }
+}, [expandedPic]);
 
   return (
     <div className="page-container">
       <div className="table-header-card">
-        <h2 className="table-title">List of goods</h2>
+        <h2 className="table-title">Good picture checker</h2>
         <Link to="/goods/new" className="table-add-btn">
           Add new
         </Link>
@@ -142,7 +206,7 @@ function GoodListChecker() {
         </thead>
 
         <tbody>
-          {filteredGoods.map((good) => {
+          {paginatedGoods.map((good) => {
             const picturesArray = good.picture || good.pictures || [];
 
             return (
@@ -172,33 +236,74 @@ function GoodListChecker() {
                       className={hasFile ? "has-photo" : "missing-photo"}
                     >
                       {hasFile ? (
-                        <img
-                          src={imgSrc}
-                          alt={pic.name || ""}
-                          className="preview-img"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        <div className="picture-miniature-container">
+                          <img
+                            src={imgSrc}
+                            alt={pic.name || ""}
+                            className="preview-img"
+                            onClick={(e) => {
+                              e.stopPropagation();
 
-                            if (clickTimer.current) {
-                              clearTimeout(clickTimer.current);
-                              clickTimer.current = null;
+                              if (clickTimer.current) {
+                                clearTimeout(clickTimer.current);
+                                clickTimer.current = null;
+                                navigate(`/picture/${pic.id}`);
+                                return;
+                              }
 
-                              navigate(`/picture/${pic.id}`);
-                              return;
-                            }
+                              clickTimer.current = setTimeout(() => {
+                                setPreviewPicture({
+                                  ...pic,
+                                  previewSrc: buildImageUrl(
+                                    pic.fullUrl || pic.link || pic.thumbnailUrl
+                                  ),
+                                });
+                                clickTimer.current = null;
+                              }, 200);
+                            }}
+                          />
+                          <div className="status-radio-group notes">
+                            <div className="radio-top">
+                              <label>
+                                <input
+                                  type="radio"
+                                  name={`picture-status-${pic.id}`}
+                                  value="correct"
+                                  checked={pic.status === "correct"}
+                                  onChange={() =>
+                                    updatePictureStatus(good.id, pic.id, "correct")
+                                  }
+                                />
+                                correct
+                              </label>
 
-                            clickTimer.current = setTimeout(() => {
-                              setPreviewPicture({
-                                ...pic,
-                                previewSrc: buildImageUrl(
-                                  pic.fullUrl || pic.link || pic.thumbnailUrl
-                                ),
-                              });
+                              <label>
+                                <input
+                                  type="radio"
+                                  name={`picture-status-${pic.id}`}
+                                  value="wrong"
+                                  checked={pic.status === "wrong"}
+                                  onChange={() =>
+                                    updatePictureStatus(good.id, pic.id, "wrong")
+                                  }
+                                />
+                                wrong
+                              </label>
+                            </div>
 
-                              clickTimer.current = null;
-                            }, 200);
-                          }}
-                        />
+                            {pic.status === "wrong" && (
+                              <textarea
+                                className="notes-red"
+                                placeholder="Add notes..."
+                                value={pic.note || ""}
+                                onFocus={() =>
+                                  setExpandedPic({ goodId: good.id, pictureId: pic.id })
+                                }
+                                readOnly
+                              />
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <span
                           className="no-photo"
@@ -208,9 +313,7 @@ function GoodListChecker() {
                               navigate(`/picture/${pic.id}`);
                             } else {
                               navigate(
-                                `/picture/new?goodId=${
-                                  good.id
-                                }&type=${short_name}&name=${encodeURIComponent(
+                                `/picture/new?goodId=${good.id}&type=${short_name}&name=${encodeURIComponent(
                                   good.title
                                 )}`
                               );
@@ -228,6 +331,28 @@ function GoodListChecker() {
           })}
         </tbody>
       </table>
+
+     
+      <div className="pagination">
+        <button onClick={prevPage} disabled={currentPage === 1}>
+          Prev
+        </button>
+
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => goToPage(page)}
+            className={page === currentPage ? "active" : ""}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button onClick={nextPage} disabled={currentPage === totalPages}>
+          Next
+        </button>
+      </div>
+
       {previewPicture && (
         <div
           className="picture-modal-backdrop"
@@ -244,6 +369,41 @@ function GoodListChecker() {
               className="picture-modal-img"
               onClick={() => setPreviewPicture(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {expandedPic && (
+        <div className="modal-backdrop">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="modal-close-btn"
+              onClick={() => setExpandedPic(null)}
+            >
+              ✕
+            </button>
+            <img
+              src={buildImageUrl(
+                expandedPic.fullUrl || expandedPic.link || expandedPic.thumbnailUrl
+              )}
+              alt={expandedPic.name || ""}
+            />
+            <div className="modal-radio-top">
+        
+            </div>
+            <div className="modal-notes">
+              <textarea
+                ref={modalNotesRef}
+                value={localNote}
+                onChange={(e) => setLocalNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    saveNote();
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
