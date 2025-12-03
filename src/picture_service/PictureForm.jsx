@@ -21,14 +21,13 @@ function PictureForm() {
     link: "",
     priority: 0,
     notes: "",
-    pictureStatus: "UNDER_REVIEW",
+    pictureStatus: "UPLOADED",
     pictureTypeId: "",
   });
 
   const [picturePreview, setPicturePreview] = useState("");
   const fileInputRef = useRef(null);
 
-  
   useEffect(() => {
     fetch("http://localhost:8080/api/v3/picture/types")
       .then((res) => res.json())
@@ -36,7 +35,6 @@ function PictureForm() {
       .catch(() => setPictureTypes([]));
   }, []);
 
-  
   useEffect(() => {
     fetch("http://localhost:8080/api/v3/picture/statuses")
       .then((res) => res.json())
@@ -44,7 +42,6 @@ function PictureForm() {
       .catch(() => setPictureStatuses([]));
   }, []);
 
-  
   useEffect(() => {
     if (id === "new") {
       if (pictureTypes.length === 0) return;
@@ -52,13 +49,12 @@ function PictureForm() {
         ...picture,
         name: nameFromQuery || "",
         pictureTypeId:
-          pictureTypes.find((pt) => pt.short_name === typeFromQuery)?.short_name || "",
+          pictureTypes.find((pt) => pt.short_name === typeFromQuery)
+            ?.short_name || "",
       });
       setGoodId(goodIdFromQuery || "");
       return;
     }
-
-    
 
     fetch(`http://localhost:8080/api/v3/picture/${id}`)
       .then((res) => res.json())
@@ -72,7 +68,12 @@ function PictureForm() {
           pictureTypeId: data.pictureType?.short_name || "",
         });
         setGoodId(data.good?.id || "");
-        if (data.link) setPicturePreview(data.link);
+        if (data.link) {
+          const fullUrl = data.link.startsWith("http")
+            ? data.link
+            : `http://localhost:8080${data.link}`;
+          setPicturePreview(fullUrl);
+        }
       });
   }, [id, pictureTypes, nameFromQuery, typeFromQuery, goodIdFromQuery]);
 
@@ -90,11 +91,16 @@ function PictureForm() {
 
     setPicture({ ...picture, file });
   };
-console.log("File to send:", picture.file);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const method = id && id !== "new" ? "PUT" : "POST";
+
+    const url =
+      id && id !== "new"
+        ? `http://localhost:8080/api/v3/picture/${id}`
+        : "http://localhost:8080/api/v3/picture";
 
     const formData = new FormData();
     formData.append("name", picture.name);
@@ -110,15 +116,24 @@ console.log("File to send:", picture.file);
       formData.append("link", picturePreview);
     }
 
-    const response = await fetch("http://localhost:8080/api/v3/picture/", {
+    // console.log("SUBMIT DATA:", {
+    //   name: picture.name,
+    //   priority: picture.priority,
+    //   notes: picture.notes,
+    //   pictureStatus: picture.pictureStatus,
+    //   pictureTypeId: picture.pictureTypeId,
+    //   goodId: goodId,
+    //   file: picture.file,
+    // });
+
+    const response = await fetch(url, {
       method,
       body: formData,
       credentials: "include",
     });
 
-    console.log("Response status:", method);
     if (response.ok) {
-      navigate("/pictures");
+      navigate("/goodlist-checker");
     } else {
       alert("Error saving picture");
     }
@@ -156,7 +171,7 @@ console.log("File to send:", picture.file);
             <input
               type="text"
               name="name"
-              disabled 
+              disabled
               value={picture.name}
               onChange={handleChange}
             />
@@ -167,7 +182,7 @@ console.log("File to send:", picture.file);
             <select
               name="pictureTypeId"
               value={picture.pictureTypeId}
-              disabled 
+              disabled
               onChange={handleChange}
             >
               <option value="">Select type</option>

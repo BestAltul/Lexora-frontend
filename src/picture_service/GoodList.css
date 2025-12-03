@@ -133,3 +133,73 @@ body {
 .checkbox-item:hover {
   background: #f5f5f5;
 }
+/* Image cells in the goods table */
+.goods-table td.has-photo,
+.goods-table td.missing-photo {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Thumbnail image size in the list */
+.preview-img {
+  width: 40px; /* or 100px if you want a bit bigger */
+  height: 40px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Optional: small visual hint for missing photos */
+.missing-photo .no-photo {
+  font-size: 12px;
+}
+
+.has-photo {
+  background: #ffffff;
+}
+
+.missing-photo {
+  background: #fff7f5;
+}
+.picture-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.picture-modal {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picture-modal-img {
+  max-width: 80vw;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.preview-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  cursor: zoom-in;
+}
+
+.picture-modal-img {
+  max-width: 80vw;
+  max-height: 80vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}

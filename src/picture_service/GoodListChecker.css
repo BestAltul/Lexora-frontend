@@ -141,3 +141,55 @@ body {
 .goods-table tbody tr {
   cursor: pointer;
 }
+
+.goods-picture {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  display: block;
+}
+
+.picture-cell {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.picture-cell img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+/* Image cells in the goods table */
+.goods-table td.has-photo,
+.goods-table td.missing-photo {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Thumbnail image size in the list */
+.preview-img {
+  width: 80px; /* or 100px if you want a bit bigger */
+  height: 80px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Optional: small visual hint for missing photos */
+.missing-photo .no-photo {
+  font-size: 12px;
+}
+
+.has-photo {
+  background: #ffffff;
+}
+
+.missing-photo {
+  background: #fff7f5;
+}

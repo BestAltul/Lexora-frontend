@@ -2,6 +2,22 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import "./GoodForm.css";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+function buildImageUrl(link) {
+  if (!link) return "";
+
+  if (
+    link.startsWith("http://") ||
+    link.startsWith("https://") ||
+    link.startsWith("data:")
+  ) {
+    return link;
+  }
+
+  return `${API_BASE_URL}${link}`;
+}
+
 function GoodForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,16 +54,14 @@ function GoodForm() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:8080/api/goods-collections").then((res) =>
+      fetch(`${API_BASE_URL}/api/v3/goods-collections`).then((res) =>
         res.json()
       ),
-      fetch("http://localhost:8080/api/categories").then((res) => res.json()),
-      fetch("http://localhost:8080/api/product-types").then((res) =>
-        res.json()
-      ),
-      fetch("http://localhost:8080/api/colors").then((res) => res.json()),
-      fetch("http://localhost:8080/api/goods/core").then((res) => res.json()),
-      fetch("http://localhost:8080/api/picture-types").then((res) =>
+      fetch(`${API_BASE_URL}/api/v3/categories`).then((res) => res.json()),
+      fetch(`${API_BASE_URL}/api/v3/product-types`).then((res) => res.json()),
+      fetch(`${API_BASE_URL}/api/v3/colors`).then((res) => res.json()),
+      fetch(`${API_BASE_URL}/api/v3/goods/core`).then((res) => res.json()),
+      fetch(`${API_BASE_URL}/api/v3/picture/types`).then((res) =>
         res.ok ? res.json() : []
       ),
     ])
@@ -69,7 +83,7 @@ function GoodForm() {
       });
 
     if (id && id !== "new") {
-      fetch(`http://localhost:8080/api/goods/${id}`)
+      fetch(`${API_BASE_URL}/api/v3/goods/${id}`)
         .then((res) => res.json())
         .then((data) =>
           setGood((prev) => ({
@@ -85,11 +99,11 @@ function GoodForm() {
             categoryId: data.category?.id || "",
             productTypeId: data.productType?.id || "",
             colorId: data.color?.id || "",
-            mainPictureLink: prev.mainPictureLink,
+            mainPictureLink: prev.mainPictureLink || data.mainPictureLink || "",
           }))
         );
 
-      fetch(`http://localhost:8080/api/goods/${id}/pictures`)
+      fetch(`${API_BASE_URL}/api/v3/goods/${id}/pictures`)
         .then((res) => (res.ok ? res.json() : []))
         .then((data) => {
           setPictures(
@@ -124,8 +138,8 @@ function GoodForm() {
     const method = id && id !== "new" ? "PUT" : "POST";
     const url =
       id && id !== "new"
-        ? `http://localhost:8080/api/goods/${id}`
-        : "http://localhost:8080/api/goods";
+        ? `${API_BASE_URL}/api/v3/goods/${id}`
+        : `${API_BASE_URL}/api/v3/goods`;
 
     const payload = {
       sku: good.sku,
@@ -147,7 +161,7 @@ function GoodForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then(() => {
-      navigate("/goods");
+      navigate("/goodlist-checker");
     });
   };
 
@@ -232,7 +246,7 @@ function GoodForm() {
         <div className="header-picture-square">
           {good.mainPictureLink ? (
             <img
-              src={good.mainPictureLink}
+              src={buildImageUrl(good.mainPictureLink)}
               className="header-picture-img"
               alt="Preview"
             />
@@ -379,7 +393,7 @@ function GoodForm() {
                       name="mainPictureLink"
                       value={good.mainPictureLink}
                       onChange={handleChange}
-                      placeholder="https://..."
+                      placeholder="https://... or /uploads/..."
                     />
                   </label>
                 </div>
@@ -488,7 +502,7 @@ function GoodForm() {
                     >
                       {pic.previewUrl || pic.link ? (
                         <img
-                          src={pic.previewUrl || pic.link}
+                          src={buildImageUrl(pic.previewUrl || pic.link)}
                           className="picture-img"
                           alt={pic.name || `Picture ${index + 1}`}
                         />
@@ -603,7 +617,9 @@ function GoodForm() {
         <div className="picture-modal-backdrop" onClick={handleClosePreview}>
           <div className="picture-modal" onClick={(e) => e.stopPropagation()}>
             <img
-              src={previewPicture.previewUrl || previewPicture.link}
+              src={buildImageUrl(
+                previewPicture.previewUrl || previewPicture.link
+              )}
               alt={previewPicture.name || "Preview"}
               className="picture-modal-img"
             />
