@@ -109,6 +109,7 @@ function PictureForm() {
     formData.append("pictureStatus", picture.pictureStatus);
     formData.append("pictureTypeId", picture.pictureTypeId);
     formData.append("goodId", goodId);
+    formData.append("pictureId", id);
 
     if (picture.file) {
       formData.append("file", picture.file);

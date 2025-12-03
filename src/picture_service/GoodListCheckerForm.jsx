@@ -33,7 +33,7 @@ function GoodListChecker() {
   const [localNote, setLocalNote] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMSPER_PAGE = 20;
+  const ITEMSPER_PAGE = 10;
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v3/goods`)
@@ -56,14 +56,21 @@ function GoodListChecker() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  
 
-  useEffect(() => {
-    if (expandedPic) {
-      const fullGood = goods.find((g) => g.id === expandedPic.goodId);
-      const fullPic = fullGood.picture.find((p) => p.id === expandedPic.pictureId);
-      setLocalNote(fullPic.note || "");
-    }
-  }, [expandedPic, goods]);
+useEffect(() => {
+  if (expandedPic) {
+    const fullGood = goods.find((g) => g.id === expandedPic.goodId);
+    const fullPic = fullGood.picture.find((p) => p.id === expandedPic.pictureId);
+    setLocalNote(fullPic.note || "");
+    setExpandedPic({
+      ...expandedPic,
+      status: fullPic.status,
+      correct: fullPic.status === "correct"
+    });
+  }
+}, [expandedPic, goods]);
+
 
   const handleTextFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -100,6 +107,27 @@ function GoodListChecker() {
   const nextPage = () => goToPage(currentPage + 1);
   const prevPage = () => goToPage(currentPage - 1);
 
+  const updatePictureFormData = async (pictureId, fields) => {
+  const formData = new FormData();
+
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value);
+    }
+  });
+  formData.append("pictureId", pictureId);
+
+  try {
+    await fetch(`${API_BASE_URL}/api/v3/picture/${pictureId}`, {
+      method: "PATCH",
+      body: formData,
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error("Failed to update picture", err);
+  }
+};
+
   const updatePictureStatus = (goodId, pictureId, status) => {
     setGoods((prevGoods) =>
       prevGoods.map((good) => {
@@ -111,6 +139,7 @@ function GoodListChecker() {
         return { ...good, picture: updatedPictures, pictures: updatedPictures };
       })
     );
+    updatePictureFormData(pictureId, { correct: status === "correct" });
   };
 
   const updatePictureNote = (goodId, pictureId, note) => {
@@ -124,6 +153,7 @@ function GoodListChecker() {
         return { ...good, picture: updatedPictures, pictures: updatedPictures };
       })
     );
+    updatePictureFormData(pictureId, { notes: note });
   };
 
   const saveNote = () => {
@@ -393,6 +423,28 @@ function GoodListChecker() {
             </div>
             <div className="modal-notes">
               <textarea
+  ref={modalNotesRef}
+  value={localNote}
+  onChange={(e) => setLocalNote(e.target.value)}
+  onBlur={() => {
+    if (expandedPic) {
+      updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
+      updatePictureFormData(expandedPic.pictureId, { notes: localNote });
+    }
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (expandedPic) {
+        updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
+        updatePictureFormData(expandedPic.pictureId, { notes: localNote });
+        setExpandedPic(null);
+      }
+    }
+  }}
+/>
+
+              {/* <textarea
                 ref={modalNotesRef}
                 value={localNote}
                 onChange={(e) => setLocalNote(e.target.value)}
@@ -402,7 +454,7 @@ function GoodListChecker() {
                     saveNote();
                   }
                 }}
-              />
+              /> */}
             </div>
           </div>
         </div>
