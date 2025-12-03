@@ -1,10 +1,24 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./GoodList.css";
-import { useLocation } from "react-router-dom";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-function GoodList() {
+function buildImageUrl(link) {
+  if (!link) return "";
+
+  if (
+    link.startsWith("http://") ||
+    link.startsWith("https://") ||
+    link.startsWith("data:")
+  ) {
+    return link;
+  }
+
+  return `${API_BASE_URL}${link}`;
+}
+
+function GoodListChecker() {
   const [goods, setGoods] = useState([]);
   const [filters, setFilters] = useState({ title: "", sku: "" });
   const [pictureTypes, setPictureTypes] = useState([]);
@@ -12,27 +26,21 @@ function GoodList() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  
-  const location = useLocation();
-  const query = new URLSearchParams(useLocation().search);
+  const [previewPicture, setPreviewPicture] = useState(null);
+  const clickTimer = useRef(null);
 
-  const goodIdFromQuery = query.get("goodId");
-  const typeFromQuery = query.get("type");
-
-  
   useEffect(() => {
-    fetch("http://localhost:8080/api/v3/goods")
+    fetch(`${API_BASE_URL}/api/v3/goods`)
       .then((res) => res.json())
       .then((data) => setGoods(data || []))
       .catch(() => setGoods([]));
 
-    fetch("http://localhost:8080/api/v3/picture/types")
+    fetch(`${API_BASE_URL}/api/v3/picture/types`)
       .then((res) => res.json())
       .then((data) => setPictureTypes(data || []))
       .catch(() => setPictureTypes([]));
   }, []);
 
-  
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -139,7 +147,6 @@ function GoodList() {
 
             return (
               <tr key={good.id}>
-              
                 <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>
                   {good.title}
                 </td>
@@ -147,68 +154,101 @@ function GoodList() {
                   {good.sku}
                 </td>
 
-{selectedPictureTypes.map((short_name) => {
-  const pic = picturesArray.find(
-    (p) =>
-      p.pictureType?.short_name === short_name ||
-      p.short_name === short_name
-  );
+                {selectedPictureTypes.map((short_name) => {
+                  const pic = picturesArray.find(
+                    (p) =>
+                      p.pictureType?.short_name === short_name ||
+                      p.short_name === short_name
+                  );
 
-  const hasFile = pic && (pic.thumbnailUrl || pic.link);
+                  const hasFile = pic && (pic.thumbnailUrl || pic.link);
+                  const imgSrc = hasFile
+                    ? buildImageUrl(pic.thumbnailUrl || pic.link)
+                    : "";
 
-  return (
-    <td
-      key={short_name}
-      className={hasFile ? "has-photo" : "missing-photo"}
-    >
-      {hasFile ? (
-        
-        <img
-          src={pic.thumbnailUrl || pic.link}
-          alt={pic.name || ""}
-          className="preview-img"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            navigate(`/picture/${pic.id,pic.name}`);
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            window.open(pic.fullUrl || pic.link, "_blank");
-          }}
-        />
+                  return (
+                    <td
+                      key={short_name}
+                      className={hasFile ? "has-photo" : "missing-photo"}
+                    >
+                      {hasFile ? (
+                        <img
+                          src={imgSrc}
+                          alt={pic.name || ""}
+                          className="preview-img"
+                          onClick={(e) => {
+                            e.stopPropagation();
 
-      ) : (
-        
-<span
-  className="no-photo"
-  style={{ cursor: "pointer", color: "#007bff" }}
-  onClick={() => {
-    if (pic) {
-      navigate(`/picture/${pic.id}`);
-    } else {
-      
-      navigate(
-        `/picture/new?goodId=${good.id}&type=${short_name}&name=${encodeURIComponent(good.title)}`
-      );
-    }
-  }}
->
-  {pic ? "Add file" : "Add photo"}
-</span>
+                            if (clickTimer.current) {
+                              clearTimeout(clickTimer.current);
+                              clickTimer.current = null;
 
-      )}
-    </td>
-  );
-})}
+                              navigate(`/picture/${pic.id}`);
+                              return;
+                            }
 
+                            clickTimer.current = setTimeout(() => {
+                              setPreviewPicture({
+                                ...pic,
+                                previewSrc: buildImageUrl(
+                                  pic.fullUrl || pic.link || pic.thumbnailUrl
+                                ),
+                              });
 
+                              clickTimer.current = null;
+                            }, 200);
+                          }}
+                        />
+                      ) : (
+                        <span
+                          className="no-photo"
+                          style={{ cursor: "pointer", color: "#007bff" }}
+                          onClick={() => {
+                            if (pic) {
+                              navigate(`/picture/${pic.id}`);
+                            } else {
+                              navigate(
+                                `/picture/new?goodId=${
+                                  good.id
+                                }&type=${short_name}&name=${encodeURIComponent(
+                                  good.title
+                                )}`
+                              );
+                            }
+                          }}
+                        >
+                          {pic ? "Add file" : "Add photo"}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
         </tbody>
       </table>
+      {previewPicture && (
+        <div
+          className="picture-modal-backdrop"
+          onClick={() => setPreviewPicture(null)}
+        >
+          <div className="picture-modal" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={buildImageUrl(
+                previewPicture.fullUrl ||
+                  previewPicture.link ||
+                  previewPicture.thumbnailUrl
+              )}
+              alt={previewPicture.name || ""}
+              className="picture-modal-img"
+              onClick={() => setPreviewPicture(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default GoodList;
+export default GoodListChecker;
