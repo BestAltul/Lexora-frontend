@@ -37,28 +37,43 @@ function GoodListChecker() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMSPER_PAGE = 10;
 
-  // Восстановление состояния из localStorage
-  useEffect(() => {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      try {
-        const { filters, selectedPictureTypes, currentPage } = JSON.parse(savedState);
-        if (filters) setFilters(filters);
-        if (selectedPictureTypes) setSelectedPictureTypes(selectedPictureTypes);
-        if (currentPage !== undefined) setCurrentPage(currentPage);
-      } catch (err) {
-        console.error("Failed to parse saved state", err);
-      }
+const [isHydrated, setIsHydrated] = useState(false);
+
+
+useEffect(() => {
+  const savedState = sessionStorage.getItem(STORAGE_KEY);
+  if (savedState) {
+    try {
+      const { filters, selectedPictureTypes, currentPage } = JSON.parse(savedState);
+      if (filters) setFilters(filters);
+      if (selectedPictureTypes) setSelectedPictureTypes(selectedPictureTypes);
+      if (currentPage !== undefined) setCurrentPage(currentPage);
+    } catch (err) {
+      console.error("Failed to parse saved state", err);
     }
-  }, []);
+  }
+  setIsHydrated(true);
+}, []);
 
-  // Сохранение состояния в localStorage при изменениях
-  useEffect(() => {
-    const stateToSave = { filters, selectedPictureTypes, currentPage };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  }, [filters, selectedPictureTypes, currentPage]);
 
-  // Загрузка данных
+useEffect(() => {
+  if (!isHydrated) return;
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        filters: { ...filters },
+        selectedPictureTypes: [...selectedPictureTypes],
+        currentPage,
+      })
+    );
+  } catch (err) {
+    console.error("Failed to save state", err);
+  }
+}, [filters.title, filters.sku, selectedPictureTypes, currentPage, isHydrated]);
+
+
+  
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v3/goods`)
       .then((res) => res.json())
@@ -71,7 +86,7 @@ function GoodListChecker() {
       .catch(() => setPictureTypes([]));
   }, []);
 
-  // Закрытие dropdown при клике вне
+  
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -82,7 +97,7 @@ function GoodListChecker() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Подгрузка заметки при открытии модалки
+  
   useEffect(() => {
     if (!expandedPic) return;
 
