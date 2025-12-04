@@ -19,6 +19,8 @@ function buildImageUrl(link) {
 }
 
 function GoodListChecker() {
+  const STORAGE_KEY = "goodListCheckerState";
+
   const [goods, setGoods] = useState([]);
   const [filters, setFilters] = useState({ title: "", sku: "" });
   const [pictureTypes, setPictureTypes] = useState([]);
@@ -35,6 +37,28 @@ function GoodListChecker() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMSPER_PAGE = 10;
 
+  // Восстановление состояния из localStorage
+  useEffect(() => {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      try {
+        const { filters, selectedPictureTypes, currentPage } = JSON.parse(savedState);
+        if (filters) setFilters(filters);
+        if (selectedPictureTypes) setSelectedPictureTypes(selectedPictureTypes);
+        if (currentPage !== undefined) setCurrentPage(currentPage);
+      } catch (err) {
+        console.error("Failed to parse saved state", err);
+      }
+    }
+  }, []);
+
+  // Сохранение состояния в localStorage при изменениях
+  useEffect(() => {
+    const stateToSave = { filters, selectedPictureTypes, currentPage };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [filters, selectedPictureTypes, currentPage]);
+
+  // Загрузка данных
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v3/goods`)
       .then((res) => res.json())
@@ -47,6 +71,7 @@ function GoodListChecker() {
       .catch(() => setPictureTypes([]));
   }, []);
 
+  // Закрытие dropdown при клике вне
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -56,21 +81,27 @@ function GoodListChecker() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
 
-useEffect(() => {
-  if (expandedPic) {
+  // Подгрузка заметки при открытии модалки
+  useEffect(() => {
+    if (!expandedPic) return;
+
     const fullGood = goods.find((g) => g.id === expandedPic.goodId);
-    const fullPic = fullGood.picture.find((p) => p.id === expandedPic.pictureId);
-    setLocalNote(fullPic.note || "");
-    setExpandedPic({
-      ...expandedPic,
-      status: fullPic.status,
-      correct: fullPic.status === "correct"
-    });
-  }
-}, [expandedPic, goods]);
+    if (!fullGood) return;
 
+    const fullPic = (fullGood.picture || fullGood.pictures || []).find(
+      (p) => p.id === expandedPic.pictureId
+    );
+    if (!fullPic) return;
+
+    setLocalNote(fullPic.notes || "");
+  }, [expandedPic, goods]);
+
+  useEffect(() => {
+    if (expandedPic && modalNotesRef.current) {
+      modalNotesRef.current.focus();
+    }
+  }, [expandedPic]);
 
   const handleTextFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -86,9 +117,7 @@ useEffect(() => {
   };
 
   const filteredGoods = goods.filter((good) => {
-    const titleMatch = good.title
-      ?.toLowerCase()
-      .includes(filters.title.toLowerCase());
+    const titleMatch = good.title?.toLowerCase().includes(filters.title.toLowerCase());
     const skuMatch = good.sku?.toLowerCase().includes(filters.sku.toLowerCase());
     return titleMatch && skuMatch;
   });
@@ -108,39 +137,42 @@ useEffect(() => {
   const prevPage = () => goToPage(currentPage - 1);
 
   const updatePictureFormData = async (pictureId, fields) => {
-  const formData = new FormData();
-
-  Object.entries(fields).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      formData.append(key, value);
-    }
-  });
-  formData.append("pictureId", pictureId);
-
-  try {
-    await fetch(`${API_BASE_URL}/api/v3/picture/${pictureId}`, {
-      method: "PATCH",
-      body: formData,
-      credentials: "include",
+    const formData = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value);
+      }
     });
-  } catch (err) {
-    console.error("Failed to update picture", err);
-  }
+    formData.append("pictureId", pictureId);
+
+    try {
+      await fetch(`${API_BASE_URL}/api/v3/picture/${pictureId}`, {
+        method: "PATCH",
+        body: formData,
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Failed to update picture", err);
+    }
+  };
+
+const updatePictureStatus = (goodId, pictureId, status) => {
+  const isCorrect = status === "correct";
+  
+  setGoods((prevGoods) =>
+    prevGoods.map((good) => {
+      if (good.id !== goodId) return good;
+      const updatedPictures = (good.picture || good.pictures || []).map((pic) => {
+        if (pic.id !== pictureId) return pic;
+        return { ...pic, correct: isCorrect };
+      });
+      return { ...good, picture: updatedPictures, pictures: updatedPictures };
+    })
+  );
+
+  updatePictureFormData(pictureId, { correct: isCorrect });
 };
 
-  const updatePictureStatus = (goodId, pictureId, status) => {
-    setGoods((prevGoods) =>
-      prevGoods.map((good) => {
-        if (good.id !== goodId) return good;
-        const updatedPictures = (good.picture || good.pictures || []).map((pic) => {
-          if (pic.id !== pictureId) return pic;
-          return { ...pic, status };
-        });
-        return { ...good, picture: updatedPictures, pictures: updatedPictures };
-      })
-    );
-    updatePictureFormData(pictureId, { correct: status === "correct" });
-  };
 
   const updatePictureNote = (goodId, pictureId, note) => {
     setGoods((prevGoods) =>
@@ -148,7 +180,7 @@ useEffect(() => {
         if (good.id !== goodId) return good;
         const updatedPictures = (good.picture || good.pictures || []).map((pic) => {
           if (pic.id !== pictureId) return pic;
-          return { ...pic, note };
+          return { ...pic, notes: note };
         });
         return { ...good, picture: updatedPictures, pictures: updatedPictures };
       })
@@ -157,15 +189,10 @@ useEffect(() => {
   };
 
   const saveNote = () => {
+    if (!expandedPic) return;
     updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
     setExpandedPic(null);
   };
-
-  useEffect(() => {
-  if (expandedPic && modalNotesRef.current) {
-    modalNotesRef.current.focus();
-  }
-}, [expandedPic]);
 
   return (
     <div className="page-container">
@@ -218,10 +245,6 @@ useEffect(() => {
         </div>
       </div>
 
-      <div style={{ marginTop: "10px", fontSize: "12px", color: "#888" }}>
-        Debug pictureTypes: {pictureTypes.map((pt) => pt.name).join(", ")}
-      </div>
-
       <table className="goods-table">
         <thead>
           <tr>
@@ -241,12 +264,8 @@ useEffect(() => {
 
             return (
               <tr key={good.id}>
-                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>
-                  {good.title}
-                </td>
-                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>
-                  {good.sku}
-                </td>
+                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>{good.title}</td>
+                <td onDoubleClick={() => navigate(`/goods/${good.id}`)}>{good.sku}</td>
 
                 {selectedPictureTypes.map((short_name) => {
                   const pic = picturesArray.find(
@@ -299,7 +318,7 @@ useEffect(() => {
                                   type="radio"
                                   name={`picture-status-${pic.id}`}
                                   value="correct"
-                                  checked={pic.status === "correct"}
+                                  checked={pic.correct === true}
                                   onChange={() =>
                                     updatePictureStatus(good.id, pic.id, "correct")
                                   }
@@ -312,7 +331,7 @@ useEffect(() => {
                                   type="radio"
                                   name={`picture-status-${pic.id}`}
                                   value="wrong"
-                                  checked={pic.status === "wrong"}
+                                  checked={pic.correct === false}
                                   onChange={() =>
                                     updatePictureStatus(good.id, pic.id, "wrong")
                                   }
@@ -321,11 +340,11 @@ useEffect(() => {
                               </label>
                             </div>
 
-                            {pic.status === "wrong" && (
+                            {pic.correct === false && (
                               <textarea
                                 className="notes-red"
                                 placeholder="Add notes..."
-                                value={pic.note || ""}
+                                value={pic.notes || ""}
                                 onFocus={() =>
                                   setExpandedPic({ goodId: good.id, pictureId: pic.id })
                                 }
@@ -362,7 +381,6 @@ useEffect(() => {
         </tbody>
       </table>
 
-     
       <div className="pagination">
         <button onClick={prevPage} disabled={currentPage === 1}>
           Prev
@@ -418,43 +436,19 @@ useEffect(() => {
               )}
               alt={expandedPic.name || ""}
             />
-            <div className="modal-radio-top">
-        
-            </div>
             <div className="modal-notes">
               <textarea
-  ref={modalNotesRef}
-  value={localNote}
-  onChange={(e) => setLocalNote(e.target.value)}
-  onBlur={() => {
-    if (expandedPic) {
-      updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
-      updatePictureFormData(expandedPic.pictureId, { notes: localNote });
-    }
-  }}
-  onKeyDown={(e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (expandedPic) {
-        updatePictureNote(expandedPic.goodId, expandedPic.pictureId, localNote);
-        updatePictureFormData(expandedPic.pictureId, { notes: localNote });
-        setExpandedPic(null);
-      }
-    }
-  }}
-/>
-
-              {/* <textarea
                 ref={modalNotesRef}
                 value={localNote}
                 onChange={(e) => setLocalNote(e.target.value)}
+                onBlur={() => saveNote()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     saveNote();
                   }
                 }}
-              /> */}
+              />
             </div>
           </div>
         </div>
